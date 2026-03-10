@@ -2,4 +2,5 @@ fastapi
 uvicorn[standard]
 python-multipart
 httpx
+beautifulsoup4
 vitap-vtop-client @ git+https://github.com/Udhay-Adithya/vitap-vtop-client.git@main
