@@ -1,0 +1,6 @@
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+pydantic==2.10.4
+httpx==0.28.1
+python-multipart==0.0.20
+vitap-vtop-client @ git+https://github.com/Udhay-Adithya/vitap-vtop-client.git@main

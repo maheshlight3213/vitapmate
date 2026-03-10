@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="VITAPMate"/>
+<meta name="theme-color" content="#0d0f1a"/>
+<title>VITAPMate</title>
+<style>
+:root{
+  --bg:#0d0f1a;--surface:#141728;--surface2:#1c2035;--border:#252a42;
+  --primary:#1a237e;--pri-light:#3949ab;--accent:#ff6f00;--acc-light:#ffa726;
+  --danger:#ef5350;--warn:#ffa726;--ok:#66bb6a;
+  --text:#e8eaf6;--muted:#7986cb;--dim:#4a5080;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bot:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overscroll-behavior:none}
+input,button{font-family:inherit}
+::-webkit-scrollbar{display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes up{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── Layout ── */
+#app{display:flex;flex-direction:column;height:100%;max-width:480px;margin:0 auto;position:relative}
+#topbar{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:calc(var(--safe-top) + 12px) 18px 12px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:100;flex-shrink:0;
+}
+#content{flex:1;overflow-y:auto;padding-bottom:calc(var(--safe-bot) + 66px)}
+#navbar{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:480px;
+  background:var(--surface);border-top:1px solid var(--border);
+  display:flex;padding-bottom:var(--safe-bot);z-index:100;
+}
+
+/* ── Nav tabs ── */
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:9px 4px 7px;background:none;border:none;cursor:pointer;
+  color:var(--dim);transition:color .18s;border-top:2px solid transparent;font-size:9px;font-weight:500}
+.tab.active{color:var(--accent);border-top-color:var(--accent)}
+.tab-icon{font-size:19px;line-height:1}
+
+/* ── Cards ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px}
+
+/* ── Inputs ── */
+.field{margin-bottom:16px}
+.field label{display:block;color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:7px}
+.field input{
+  width:100%;padding:12px 14px;background:var(--surface2);
+  border:1px solid var(--border);border-radius:10px;
+  color:var(--text);font-size:15px;outline:none;
+  -webkit-appearance:none;appearance:none;
+}
+.field input:focus{border-color:var(--accent)}
+input:-webkit-autofill{-webkit-box-shadow:0 0 0 30px var(--surface2) inset!important;-webkit-text-fill-color:var(--text)!important}
+
+/* ── Buttons ── */
+.btn-primary{
+  width:100%;padding:14px;border:none;border-radius:12px;
+  background:linear-gradient(135deg,var(--accent),var(--acc-light));
+  color:#fff;font-size:15px;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  transition:opacity .18s;
+}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-sm{padding:6px 12px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer}
+
+/* ── Spinner ── */
+.spin{width:22px;height:22px;border-radius:50%;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;animation:spin .7s linear infinite;flex-shrink:0}
+.spin-big{width:40px;height:40px;border:3px solid var(--accent)22;border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto}
+
+/* ── Error box ── */
+.error-box{background:#ef535018;border:1px solid #ef535040;border-radius:10px;padding:10px 14px;color:#ff5252;font-size:13px;margin-bottom:14px}
+
+/* ── Attendance bar ── */
+.att-bar-bg{width:100%;height:7px;border-radius:4px;overflow:hidden}
+.att-bar{height:100%;border-radius:4px;transition:width .8s ease}
+
+/* ── Pill / badge ── */
+.pill{display:inline-flex;align-items:center;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700}
+
+/* ── Loader placeholder ── */
+.loading-center{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:14px;color:var(--muted);font-size:14px}
+
+/* ── SVG circle ── */
+.ring-bg{fill:none}
+.ring-fg{fill:none;stroke-linecap:round;transition:stroke-dasharray 1s ease}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <span style="font-weight:900;font-size:19px">VITAP<span style="color:var(--accent)">Mate</span></span>
+    <div id="topbar-right"></div>
+  </div>
+  <div id="content"></div>
+  <nav id="navbar" style="display:none">
+    <button class="tab active" data-tab="home" onclick="switchTab('home')"><span class="tab-icon">🏠</span>Home</button>
+    <button class="tab" data-tab="attendance" onclick="switchTab('attendance')"><span class="tab-icon">📊</span>Attend.</button>
+    <button class="tab" data-tab="timetable" onclick="switchTab('timetable')"><span class="tab-icon">📅</span>Timetable</button>
+    <button class="tab" data-tab="marks" onclick="switchTab('marks')"><span class="tab-icon">📝</span>Marks</button>
+    <button class="tab" data-tab="exams" onclick="switchTab('exams')"><span class="tab-icon">📋</span>Exams</button>
+  </nav>
+</div>
+
+<script>
+// ── Config ───────────────────────────────────────────────────────────────────
+// After deploying to Render, paste your URL below, e.g.:
+// const API = "https://vitapmate-xxxx.onrender.com";
+// For local testing: const API = "http://localhost:8000";
+const API = window.VITAPMATE_API || "REPLACE_WITH_YOUR_RENDER_URL";
+
+// ── State ────────────────────────────────────────────────────────────────────
+let state = {
+  creds: null,       // {reg, password, semId}
+  data: {},          // cached api responses per tab
+  currentTab: "home",
+  loading: {},
+};
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const content = () => $("content");
+const days = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+const today = days[new Date().getDay()];
+const todayDate = new Date().toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short"});
+
+function attColor(p){return p>=80?"var(--ok)":p>=75?"var(--warn)":"var(--danger)"}
+
+function ring(pct,size=72){
+  const r=size/2-5, c=2*Math.PI*r, d=(pct/100)*c;
+  const col=attColor(pct);
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+    <circle class="ring-bg" cx="${size/2}" cy="${size/2}" r="${r}" stroke="${col}22" stroke-width="5"/>
+    <circle class="ring-fg" cx="${size/2}" cy="${size/2}" r="${r}" stroke="${col}" stroke-width="5"
+      stroke-dasharray="${d} ${c}" transform="rotate(-90 ${size/2} ${size/2})"/>
+    <text x="${size/2}" y="${size/2+5}" text-anchor="middle" fill="${col}"
+      font-size="${size*.19}" font-weight="700" font-family="-apple-system,sans-serif">${pct}%</text>
+  </svg>`;
+}
+
+async function api(path, body){
+  if(API.includes("REPLACE_WITH")) throw new Error("SERVER_NOT_CONFIGURED");
+  const r = await fetch(API+path,{
+    method:body?"POST":"GET",
+    headers:{"Content-Type":"application/json"},
+    body:body?JSON.stringify(body):undefined
+  });
+  if(!r.ok){
+    const err = await r.json().catch(()=>({detail:r.statusText}));
+    throw new Error(err.detail||r.statusText);
+  }
+  return r.json();
+}
+
+function semIdFromReg(reg){
+  // guess semester from current date
+  const now=new Date(), m=now.getMonth()+1, y=now.getFullYear();
+  if(m>=7&&m<=11) return `AP${y}${String(y+1).slice(-2)}2`;
+  if(m<=4)        return `AP${y-1}${String(y).slice(-2)}5`;
+  return `AP${y}${String(y+1).slice(-2)}2`;
+}
+
+// ── Login Screen ──────────────────────────────────────────────────────────────
+function renderLogin(errorMsg=""){
+  $("navbar").style.display="none";
+  $("topbar-right").innerHTML="";
+  const serverConfigured = !API.includes("REPLACE_WITH");
+
+  content().innerHTML=`
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 60px);padding:24px;animation:up .5s ease">
+    <div style="margin-bottom:32px;text-align:center">
+      <div style="width:76px;height:76px;border-radius:20px;background:linear-gradient(135deg,var(--primary),var(--pri-light));
+        display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 14px;
+        box-shadow:0 8px 32px #1a237e55">🎓</div>
+      <h1 style="font-size:26px;font-weight:900;letter-spacing:-1px">VITAP<span style="color:var(--accent)">Mate</span></h1>
+      <p style="color:var(--muted);font-size:13px;margin-top:5px">VIT-AP Student Portal</p>
+    </div>
+
+    ${!serverConfigured?`
+    <div style="background:#ff6f0015;border:1px solid #ff6f0040;border-radius:12px;padding:14px 16px;margin-bottom:20px;width:100%;max-width:380px">
+      <div style="color:var(--accent);font-weight:700;font-size:13px;margin-bottom:6px">⚙️ Server URL Not Set</div>
+      <div style="color:var(--muted);font-size:12px;line-height:1.6">
+        After deploying to Render, paste your server URL below to activate real VTOP data.
+      </div>
+      <input id="api-url-input" placeholder="https://your-app.onrender.com"
+        style="width:100%;margin-top:10px;padding:9px 12px;background:var(--surface2);
+        border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none"/>
+      <button onclick="saveApiUrl()" style="margin-top:8px;width:100%;padding:8px;background:var(--accent);
+        border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer">
+        Save & Continue
+      </button>
+    </div>
+    `:""}
+
+    <div class="card" style="width:100%;max-width:380px">
+      <h2 style="font-size:17px;font-weight:700;margin-bottom:20px">Sign in to VTOP</h2>
+      ${errorMsg?`<div class="error-box">⚠️ ${errorMsg}</div>`:""}
+      <div class="field">
+        <label>Registration Number</label>
+        <input id="reg" placeholder="e.g. 22BCE1234" autocomplete="username" autocapitalize="characters" spellcheck="false"/>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <div style="position:relative">
+          <input id="pwd" type="password" placeholder="Your VTOP password" autocomplete="current-password"
+            style="padding-right:44px" onkeydown="if(event.key==='Enter')doLogin()"/>
+          <button onclick="togglePwd()" id="eye-btn" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);
+            background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:4px">👁️</button>
+        </div>
+      </div>
+      <button class="btn-primary" id="login-btn" onclick="doLogin()">Login to VTOP</button>
+      <p style="color:var(--dim);font-size:11px;text-align:center;margin-top:12px;line-height:1.5">
+        🔒 Credentials go directly to your backend server, then to VTOP.<br/>Unofficial app — not affiliated with VIT-AP University.
+      </p>
+    </div>
+  </div>`;
+}
+
+function saveApiUrl(){
+  const v = document.getElementById("api-url-input")?.value?.trim();
+  if(v&&v.startsWith("http")){
+    window.VITAPMATE_API = v.replace(/\/$/,"");
+    localStorage.setItem("vitapmate_api",window.VITAPMATE_API);
+    location.reload();
+  }
+}
+
+function togglePwd(){
+  const i=$("pwd"), btn=$("eye-btn");
+  if(i.type==="password"){i.type="text";btn.textContent="🙈";}
+  else{i.type="password";btn.textContent="👁️";}
+}
+
+async function doLogin(){
+  const reg=$("reg")?.value?.trim().toUpperCase();
+  const pwd=$("pwd")?.value?.trim();
+  if(!reg||!pwd){renderLogin("Please enter both fields");return;}
+
+  const btn=$("login-btn");
+  btn.disabled=true;
+  btn.innerHTML=`<div class="spin"></div> Logging in…`;
+
+  try{
+    const semId = semIdFromReg(reg);
+    const result = await api("/login",{registration_number:reg,password:pwd});
+    if(result.success){
+      state.creds={reg,password:pwd,semId};
+      state.data.profile=result.profile;
+      localStorage.setItem("vitapmate_creds",JSON.stringify({reg,semId}));
+      initApp();
+    } else {
+      renderLogin("Login failed. Check your credentials.");
+    }
+  }catch(e){
+    if(e.message==="SERVER_NOT_CONFIGURED"){
+      renderLogin("Please set your Render server URL first.");
+    } else if(e.message.includes("401")||e.message.toLowerCase().includes("login")){
+      renderLogin("Wrong username or password.");
+    } else {
+      renderLogin(`Connection error: ${e.message}`);
+    }
+  }
+}
+
+// ── App Shell ─────────────────────────────────────────────────────────────────
+function initApp(){
+  $("navbar").style.display="flex";
+  $("topbar-right").innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="color:var(--muted);font-size:12px">${todayDate}</span>
+      <button onclick="logout()" class="btn-sm" style="background:#ef535018;color:#ff5252">Logout</button>
+    </div>`;
+  switchTab("home");
+}
+
+function logout(){
+  state={creds:null,data:{},currentTab:"home",loading:{}};
+  localStorage.removeItem("vitapmate_creds");
+  renderLogin();
+}
+
+function switchTab(tab){
+  state.currentTab=tab;
+  document.querySelectorAll(".tab").forEach(t=>{
+    t.classList.toggle("active",t.dataset.tab===tab);
+  });
+  renderTab(tab);
+}
+
+async function renderTab(tab){
+  // If already have data, render from cache first
+  if(state.data[tab]){
+    renderTabContent(tab,state.data[tab]);
+    return;
+  }
+  showTabLoading(tab);
+  try{
+    const {reg,password,semId}=state.creds;
+    let result;
+    if(tab==="home"){
+      result=state.data.profile;
+    } else if(tab==="attendance"){
+      result=await api("/attendance",{registration_number:reg,password,sem_sub_id:semId});
+      state.data.attendance=result;
+    } else if(tab==="timetable"){
+      result=await api("/timetable",{registration_number:reg,password,sem_sub_id:semId});
+      state.data.timetable=result;
+    } else if(tab==="marks"){
+      result=await api("/marks",{registration_number:reg,password,sem_sub_id:semId});
+      state.data.marks=result;
+    } else if(tab==="exams"){
+      result=await api("/exam_schedule",{registration_number:reg,password,sem_sub_id:semId});
+      state.data.exams=result;
+    }
+    renderTabContent(tab,result);
+  }catch(e){
+    content().innerHTML=`<div class="loading-center">
+      <div style="font-size:36px">⚠️</div>
+      <div style="color:var(--danger);font-weight:700">${e.message}</div>
+      <button class="btn-primary" style="width:auto;padding:10px 24px;margin-top:8px" onclick="renderTab('${tab}')">Retry</button>
+    </div>`;
+  }
+}
+
+function showTabLoading(tab){
+  const msgs={home:"Loading profile…",attendance:"Fetching attendance from VTOP…",
+    timetable:"Loading timetable…",marks:"Fetching marks…",exams:"Loading exam schedule…"};
+  content().innerHTML=`<div class="loading-center">
+    <div class="spin-big"></div>
+    <div>${msgs[tab]||"Loading…"}</div>
+  </div>`;
+}
+
+// ── HOME ──────────────────────────────────────────────────────────────────────
+function renderTabContent(tab, data){
+  if(tab==="home") renderHome(data);
+  else if(tab==="attendance") renderAttendance(data);
+  else if(tab==="timetable") renderTimetable(data);
+  else if(tab==="marks") renderMarks(data);
+  else if(tab==="exams") renderExams(data);
+}
+
+function renderHome(profile){
+  // profile might be a Pydantic model serialized as dict
+  const p = profile||{};
+  const name = p.student_name||p.name||state.creds.reg;
+  const reg  = p.registration_number||p.regNo||state.creds.reg;
+  const prog = p.program||p.programme||"";
+  const branch = p.branch||p.school||"";
+  const sem  = p.semester||p.current_semester||"";
+  const cgpa = p.cgpa||p.CGPA||"—";
+  const credits = p.credits_earned||p.creditsEarned||"—";
+  const mentor = p.mentor_name||p.mentor||"—";
+  const email = p.email||p.student_email||"—";
+  const hostel = p.hostel||p.hostelBlock||"—";
+  const dob = p.date_of_birth||p.dob||"—";
+
+  content().innerHTML=`
+  <div style="animation:up .35s ease">
+    <!-- Hero -->
+    <div style="background:linear-gradient(135deg,var(--primary),var(--pri-light));padding:28px 20px 72px;position:relative;overflow:hidden">
+      <div style="position:absolute;right:-30px;top:-30px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.05)"></div>
+      <div style="display:flex;align-items:center;gap:15px">
+        <div style="width:58px;height:58px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--acc-light));
+          display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;
+          flex-shrink:0;box-shadow:0 4px 14px #ff6f0055">
+          ${name.charAt(0).toUpperCase()}
+        </div>
+        <div>
+          <h2 style="color:#fff;font-size:17px;font-weight:800;line-height:1.2">${name}</h2>
+          <div style="color:rgba(255,255,255,.7);font-size:12px;margin-top:4px">${reg} · Sem ${sem}</div>
+          <div style="color:rgba(255,255,255,.55);font-size:12px">${prog} ${branch}</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:0 16px">
+      <!-- Stat chips -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:-48px;margin-bottom:16px">
+        ${[["🎯","CGPA",cgpa,"var(--accent)"],["📚","Credits",credits,"var(--pri-light)"],["📅","Semester",sem,"var(--ok)"]].map(([icon,label,val,col])=>`
+        <div class="card" style="text-align:center;padding:14px 8px">
+          <div style="font-size:22px">${icon}</div>
+          <div style="font-size:19px;font-weight:800;color:${col};margin-top:4px">${val}</div>
+          <div style="font-size:10px;color:var(--dim);margin-top:2px">${label}</div>
+        </div>`).join("")}
+      </div>
+
+      <!-- Info card -->
+      <div class="card">
+        <h3 style="font-size:14px;font-weight:700;margin-bottom:14px">📋 Student Info</h3>
+        ${[["Mentor",mentor],["Email",email],["Hostel",hostel],["DOB",dob]].map(([k,v])=>`
+        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)">
+          <span style="color:var(--dim);font-size:13px">${k}</span>
+          <span style="color:var(--text);font-size:13px;font-weight:600;text-align:right;max-width:60%;word-break:break-word">${v}</span>
+        </div>`).join("")}
+      </div>
+
+      <!-- Refresh button -->
+      <button class="btn-primary" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border)"
+        onclick="state.data={};switchTab('home')">
+        🔄 Refresh Data
+      </button>
+      <p style="color:var(--dim);font-size:11px;text-align:center;margin-top:10px">
+        Semester ID: ${state.creds.semId}
+        <button onclick="changeSemId()" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:11px;text-decoration:underline">Change</button>
+      </p>
+    </div>
+  </div>`;
+}
+
+function changeSemId(){
+  const id=prompt("Enter Semester Sub ID (e.g. AP2024252 for Fall 2024-25):",state.creds.semId);
+  if(id&&id.trim()){
+    state.creds.semId=id.trim().toUpperCase();
+    state.data={profile:state.data.profile};
+    switchTab("home");
+  }
+}
+
+// ── ATTENDANCE ────────────────────────────────────────────────────────────────
+function renderAttendance(result){
+  const list = result?.attendance||result||[];
+  if(!list.length){
+    content().innerHTML=`<div class="loading-center"><div style="font-size:36px">📭</div><div>No attendance data found</div>
+      <button class="btn-primary" style="width:auto;padding:10px 24px" onclick="state.data.attendance=null;renderTab('attendance')">Retry</button></div>`;
+    return;
+  }
+
+  // Normalise keys — vtop-client may use different names
+  const courses = list.map(c=>({
+    code: c.course_code||c.courseCode||c.code||"",
+    title: c.course_title||c.courseTitle||c.title||c.subject||"",
+    type: c.course_type||c.courseType||c.type||"TH",
+    faculty: c.faculty_name||c.faculty||c.teacher||"—",
+    slot: c.slot||c.timeSlot||"",
+    attended: Number(c.attended_classes||c.attended||c.present||0),
+    total: Number(c.total_classes||c.total||c.conducted||0),
+    pct: 0,
+  })).map(c=>{c.pct=c.total>0?Math.round((c.attended/c.total)*1000)/10:0;return c;});
+
+  const overall=(courses.reduce((s,c)=>s+c.pct,0)/courses.length).toFixed(1);
+  const danger=courses.filter(c=>c.pct<75).length;
+  const warn=courses.filter(c=>c.pct>=75&&c.pct<80).length;
+
+  content().innerHTML=`
+  <div style="animation:up .35s ease;padding:16px">
+    <!-- Overview -->
+    <div style="background:linear-gradient(135deg,var(--primary),var(--pri-light));border-radius:16px;padding:20px;margin-bottom:16px;display:flex;align-items:center;gap:18px">
+      ${ring(parseFloat(overall),82)}
+      <div>
+        <div style="color:#fff;font-size:21px;font-weight:800">${overall}%</div>
+        <div style="color:rgba(255,255,255,.7);font-size:13px">Overall Attendance</div>
+        ${danger?`<div style="margin-top:8px;background:#ef535030;border:1px solid #ef535050;border-radius:8px;
+          padding:4px 10px;color:#ff5252;font-size:11px;font-weight:700">⚠️ ${danger} course${danger>1?"s":""} below 75%</div>`:""}
+        ${warn&&!danger?`<div style="margin-top:8px;background:#ffa72630;border-radius:8px;
+          padding:4px 10px;color:var(--warn);font-size:11px;font-weight:700">⚠️ ${warn} course${warn>1?"s":""} at risk</div>`:""}
+      </div>
+    </div>
+
+    ${courses.map(c=>{
+      const col=attColor(c.pct);
+      const need75=c.pct<75?Math.ceil((0.75*c.total-c.attended)/0.25):null;
+      const canSkip=c.pct>=80?Math.floor((c.attended-0.75*c.total)/0.75):null;
+      return `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.title}</div>
+            <div style="color:var(--muted);font-size:11px;margin-top:3px">${c.code} · ${c.slot} · ${c.faculty}</div>
+          </div>
+          <div style="background:${col}22;border-radius:10px;padding:5px 11px;color:${col};font-weight:800;font-size:15px;flex-shrink:0;margin-left:10px">${c.pct}%</div>
+        </div>
+        <div class="att-bar-bg" style="background:${col}22">
+          <div class="att-bar" style="width:${Math.min(c.pct,100)}%;background:${col}"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px">
+          <span style="color:var(--dim);font-size:12px">${c.attended}/${c.total} classes</span>
+          ${need75?`<span style="color:var(--danger);font-size:12px;font-weight:600">Attend ${need75} more for 75%</span>`:""}
+          ${canSkip!==null&&canSkip>0?`<span style="color:var(--ok);font-size:12px">Can skip ${canSkip} class${canSkip>1?"es":""}</span>`:""}
+        </div>
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+
+// ── TIMETABLE ─────────────────────────────────────────────────────────────────
+function renderTimetable(result){
+  const tt = result?.timetable||result||{};
+  const dayList=["MON","TUE","WED","THU","FRI","SAT"];
+  // state: active day
+  if(!window._ttDay) window._ttDay=dayList.includes(today)?today:"MON";
+
+  const renderDay=(d)=>{
+    window._ttDay=d;
+    // re-render just the day picker + classes
+    const classes=(tt[d]||[]).map(cls=>{
+      const type=cls.course_type||cls.type||"TH";
+      const accentMap={TH:"var(--pri-light)",LAB:"var(--accent)",TU:"var(--ok)"};
+      const col=accentMap[type]||"var(--pri-light)";
+      const time=cls.time||cls.timing||"";
+      const venue=cls.venue||cls.room||cls.location||"";
+      const slot=cls.slot||cls.time_slot||"";
+      const faculty=cls.faculty||cls.faculty_name||"";
+      const name=cls.course||cls.course_title||cls.courseTitle||"";
+      return `
+      <div class="card" style="border-left:3px solid ${col}">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:14px">${name}</div>
+            <div style="color:var(--muted);font-size:11px;margin-top:3px">${faculty}</div>
+          </div>
+          <div style="color:var(--muted);font-size:12px;flex-shrink:0;text-align:right;margin-left:10px">${time}</div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <span class="pill" style="background:${col}22;color:${col}">${slot}</span>
+          ${venue?`<span class="pill" style="background:var(--surface2);color:var(--muted)">🏛 ${venue}</span>`:""}
+          <span class="pill" style="background:var(--surface2);color:var(--dim)">${type}</span>
+        </div>
+      </div>`;
+    }).join("");
+
+    document.getElementById("tt-classes").innerHTML=classes||`
+      <div style="text-align:center;padding:40px 0">
+        <div style="font-size:40px;margin-bottom:10px">🎉</div>
+        <div style="color:var(--muted);font-weight:700">No classes today!</div>
+        <div style="color:var(--dim);font-size:13px;margin-top:4px">Enjoy your free day</div>
+      </div>`;
+
+    document.querySelectorAll(".day-btn").forEach(b=>{
+      b.style.background=b.dataset.day===d?"var(--accent)":"var(--surface2)";
+      b.style.color=b.dataset.day===d?"#fff":"var(--muted)";
+      b.style.borderColor=b.dataset.day===d?"var(--accent)":"var(--border)";
+      b.style.fontWeight=b.dataset.day===d?"700":"400";
+    });
+  };
+
+  content().innerHTML=`
+  <div style="animation:up .35s ease">
+    <div style="padding:14px 16px 8px;display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch">
+      ${dayList.map(d=>`
+      <button class="day-btn" data-day="${d}" onclick="(${renderDay.toString()})('${d}')"
+        style="flex-shrink:0;padding:7px 15px;border-radius:20px;cursor:pointer;font-size:13px;
+        transition:all .15s;border:1px solid var(--border);position:relative;
+        background:${window._ttDay===d?"var(--accent)":"var(--surface2)"};
+        color:${window._ttDay===d?"#fff":"var(--muted)"};
+        font-weight:${window._ttDay===d?"700":"400"};
+        border-color:${window._ttDay===d?"var(--accent)":"var(--border)"}">
+        ${d}${d===today?`<span style="position:absolute;top:-3px;right:-3px;width:7px;height:7px;background:var(--ok);border-radius:50%"></span>`:""}
+      </button>`).join("")}
+    </div>
+    <div id="tt-classes" style="padding:8px 16px"></div>
+  </div>`;
+
+  renderDay(window._ttDay);
+}
+
+// ── MARKS ─────────────────────────────────────────────────────────────────────
+function renderMarks(result){
+  const list=result?.marks||result||[];
+  if(!list.length){
+    content().innerHTML=`<div class="loading-center"><div style="font-size:36px">📭</div><div>No marks data found</div></div>`;
+    return;
+  }
+
+  function gradeInfo(pct){
+    if(pct>=91)return{g:"S",c:"#00e676"};
+    if(pct>=81)return{g:"A",c:"var(--ok)"};
+    if(pct>=71)return{g:"B",c:"#29b6f6"};
+    if(pct>=61)return{g:"C",c:"var(--warn)"};
+    if(pct>=51)return{g:"D",c:"#ff7043"};
+    return{g:"F",c:"var(--danger)"};
+  }
+
+  content().innerHTML=`
+  <div style="animation:up .35s ease;padding:16px">
+    <h2 style="font-size:17px;font-weight:800;margin-bottom:16px">📊 Internal Marks</h2>
+    ${list.map(c=>{
+      // normalise keys
+      const title=c.course_title||c.courseTitle||c.title||c.subject||c.course||"";
+      const code=c.course_code||c.courseCode||c.code||"";
+      const cat1m=Number(c.cat1_marks||c.cat1?.marks||c.CAT1||0);
+      const cat1M=Number(c.cat1_max||c.cat1?.max||50);
+      const cat2m=Number(c.cat2_marks||c.cat2?.marks||c.CAT2||0);
+      const cat2M=Number(c.cat2_max||c.cat2?.max||50);
+      const asgnm=Number(c.assignment_marks||c.assignment?.marks||c.assignment||0);
+      const asgnM=Number(c.assignment_max||c.assignment?.max||20);
+      const dam=Number(c.da_marks||c.da?.marks||c.DA||0);
+      const daM=Number(c.da_max||c.da?.max||20);
+      const quizm=Number(c.quiz_marks||c.quiz?.marks||c.quiz||0);
+      const quizM=Number(c.quiz_max||c.quiz?.max||10);
+
+      const totalM=cat1M+cat2M;
+      const totalGot=cat1m+cat2m;
+      const gi=gradeInfo(totalM>0?totalGot/totalM*100:0);
+
+      const bar=(got,max,col)=>`
+        <div style="background:${col}22;border-radius:4px;height:6px;margin-top:3px">
+          <div style="width:${max>0?Math.min(got/max*100,100):0}%;height:100%;background:${col};border-radius:4px;transition:width .8s ease"></div>
+        </div>`;
+
+      return `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:14px">${title}</div>
+            <div style="color:var(--muted);font-size:11px;margin-top:2px">${code}</div>
+          </div>
+          <div style="width:38px;height:38px;border-radius:10px;background:${gi.c}22;border:2px solid ${gi.c};
+            display:flex;align-items:center;justify-content:center;color:${gi.c};font-weight:900;font-size:17px;flex-shrink:0;margin-left:10px">
+            ${gi.g}
+          </div>
+        </div>
+        ${[
+          ["CAT 1",cat1m,cat1M,"var(--pri-light)"],
+          ["CAT 2",cat2m,cat2M,"var(--accent)"],
+          ["Assignment",asgnm,asgnM,"var(--ok)"],
+          ["DA",dam,daM,"#29b6f6"],
+          ["Quiz",quizm,quizM,"#ab47bc"],
+        ].map(([lbl,got,max,col])=>`
+        <div style="margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--muted);font-size:12px">${lbl}</span>
+            <span style="color:${col};font-weight:700;font-size:12px">${got}/${max}</span>
+          </div>
+          ${bar(got,max,col)}
+        </div>`).join("")}
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+
+// ── EXAMS ─────────────────────────────────────────────────────────────────────
+function renderExams(result){
+  const list=result?.exam_schedule||result?.exams||result||[];
+  if(!list.length){
+    content().innerHTML=`<div class="loading-center"><div style="font-size:36px">📭</div><div>No exam schedule found</div></div>`;
+    return;
+  }
+
+  function daysLeft(dateStr){
+    try{
+      const d=new Date(dateStr);
+      if(isNaN(d.getTime()))return null;
+      return Math.ceil((d-new Date())/(86400000));
+    }catch{return null;}
+  }
+
+  content().innerHTML=`
+  <div style="animation:up .35s ease;padding:16px">
+    <h2 style="font-size:17px;font-weight:800;margin-bottom:16px">📝 Exam Schedule</h2>
+    ${list.map(e=>{
+      const title=e.course_title||e.courseTitle||e.title||e.subject||"";
+      const code=e.course_code||e.courseCode||e.code||"";
+      const type=e.exam_type||e.examType||e.type||"FAT";
+      const date=e.date||e.exam_date||e.examDate||"";
+      const time=e.time||e.exam_time||e.timing||"";
+      const venue=e.venue||e.hall||e.room||"";
+      const seat=e.seat_number||e.seat||e.seatNo||"";
+      const dl=daysLeft(date);
+      const urgent=dl!==null&&dl>=0&&dl<=7;
+
+      return `
+      <div class="card" style="${urgent?"border-color:var(--danger);box-shadow:0 0 18px #ef535020":""}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:14px">${title}</div>
+            <div style="color:var(--muted);font-size:11px;margin-top:2px">${code}</div>
+          </div>
+          <span class="pill" style="background:var(--accent)22;color:var(--accent);flex-shrink:0;margin-left:10px">${type}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          ${[["📅 Date",date],["🕐 Time",time],["🏛 Venue",venue],["💺 Seat",seat]].map(([lbl,val])=>`
+          <div style="background:var(--surface2);border-radius:10px;padding:10px 12px">
+            <div style="color:var(--dim);font-size:10px">${lbl}</div>
+            <div style="color:var(--text);font-weight:700;font-size:13px;margin-top:2px">${val||"—"}</div>
+          </div>`).join("")}
+        </div>
+        ${dl!==null&&dl>=0?`
+        <div style="margin-top:10px;background:${urgent?"var(--danger)":"var(--ok)"}18;border-radius:10px;
+          padding:8px 12px;color:${urgent?"var(--danger)":"var(--ok)"};font-size:13px;font-weight:700">
+          ${dl===0?"⚠️ Exam TODAY!":`⏳ ${dl} day${dl>1?"s":""} away`}
+        </div>`:""}
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+(function boot(){
+  // Restore saved API URL
+  const savedApi=localStorage.getItem("vitapmate_api");
+  if(savedApi) window.VITAPMATE_API=savedApi;
+
+  // Patch global API getter
+  Object.defineProperty(window,"API_URL",{get:()=>window.VITAPMATE_API||API});
+
+  renderLogin();
+})();
+</script>
+</body>
+</html>
